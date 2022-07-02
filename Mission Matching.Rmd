@@ -1,0 +1,163 @@
+---
+title: "Mission Matching"
+author: "Vincent Liu"
+date: "`r lubridate::today()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  cache = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  echo = TRUE,
+  fig.retina = 2, fig.width = 12
+)
+
+library(tidyverse)
+library(gt)
+library(readxl)
+library(tidyr)
+library( pander )
+library( quanteda )
+library( quanteda.textmodels )
+library( quanteda.textstats )
+library( quanteda.textplots )
+library(urbnthemes)
+
+set_urbn_defaults(style = "print")
+```
+
+
+```{r}
+mission_statement <- read_xlsx("Data/coded-mission-statements.xlsx") %>%
+  select(!Column1)
+
+black_mission <- read_csv("Data/missions-serving-black-communities.csv") %>%
+  select(!1) %>%
+  filter(Black ==1) %>%
+  mutate(ein = as.numeric(ein))
+
+# URL <- "https://github.com/DS4PS/cpp-527-spr-2020/blob/master/labs/data/IRS-1023-EZ-MISSIONS.rds?raw=true"
+# IRS_mission <- readRDS(gzcon(url( URL )))
+# 
+# IRS_mission <- IRS_mission %>%
+#   select(ein, 4:37) 
+# IRS_mission$ein = as.numeric(IRS_mission$ein)
+# 
+# mission_statement <- mission_statement %>%
+#   left_join(IRS_mission, by = c("EIN" = "ein"))
+
+colnames(black_mission) <- str_to_title(colnames(black_mission))
+colnames(black_mission)[1] <- str_to_upper(colnames(black_mission)[1])
+#black_mission$EIN <- as.numeric(black_mission$EIN)
+#black_mission <- black_mission%>%
+#  filter(Black ==1)
+```
+
+```{r}
+# Check for NA information
+colSums(is.na(black_mission)) # Mission has 4861, two Hospitalxxx has 1397
+colSums(is.na(mission_statement)) # column Column 1 has 123 NAs out of 125 observations --> remove this column
+
+#mission_statement <- mission_statement %>%
+#  select(!Column1)
+```
+
+
+```{r}
+
+mission_1 <- mission_statement %>%
+  select(EIN, Name, Mission) %>%
+  rename(Mission.original = Mission) %>%
+  mutate(Mission = tolower(Mission.original)) %>%
+  relocate(Mission.original, .after = Mission)
+
+corp_mission <- corpus(mission_1, text_field="Mission")
+summary(corp_mission)
+
+corp_mission <- corpus_trim( corp_mission, what="sentences", min_ntoken=3 )
+
+token_mission <- tokens(corp_mission, what="word", remove_punct=TRUE, remove_symbols = T, remove_numbers = T,remove_url = T, remove_separators = T)
+
+token_mission <- tokens_remove(token_mission, c( stopwords("english"), "nbsp" ), padding=F )
+
+my_dictionary <- dictionary( list( five01_c_3= c("501 c 3","section 501 c 3") ,
+                             united_states = c("united states"),
+                             high_school=c("high school"),
+                             non_profit=c("non-profit", "non profit"),
+                             stem=c("science technology engineering math", 
+                                    "science technology engineering mathematics" ),
+                             los_angeles=c("los angeles"),
+                             ny_state=c("new york state"),
+                             ny=c("new york")
+                           ))
+
+# apply the dictionary to the text 
+token_mission <- tokens_compound(token_mission, pattern=my_dictionary )
+
+#token_mission <- tokens_wordstem(token_mission) #stem words
+
+tokens_replace(token_mission, pattern = lexicon::hash_lemmas$token, replacement = lexicon::hash_lemmas$lemma) #lemmatize
+
+
+bigram_mission <- tokens_ngrams(token_mission, n=2 )
+trigram_mission <- tokens_ngrams(token_mission, n=3)
+```
+
+
+```{r}
+trigram_mission %>%dfm() %>% textstat_frequency(n=20)
+bigram_mission %>%dfm() %>% textstat_frequency(n=20)
+token_mission %>%dfm() %>% textstat_frequency(n =30)
+
+```
+
+
+```{r}
+token_mission %>% dfm() %>% topfeatures( )
+bigram_mission %>% dfm() %>% topfeatures( )
+trigram_mission %>% dfm() %>% topfeatures( )
+```
+
+```{r}
+token_mission %>%
+  dfm() %>%
+  textstat_frequency(n = 15) %>%
+  as_tibble() %>%
+  mutate(feature = reorder(feature, frequency)) %>%
+  ggplot(aes(x = frequency, y = feature)) +
+  scale_x_continuous(expand = expansion(mult = c(0.002, 0)),
+                     breaks = c(seq(0, 25, 5)),
+                     limits = c(0, 28)) +
+  geom_segment(aes(x = 0, xend = frequency, y = feature, yend = feature), color = "grey50")+
+  geom_point(color = "#00BFC4", size = 2.5) +
+  labs(x = NULL, 
+         y = "Token Frequency") +
+  geom_text(aes(label = frequency), nudge_x = 1.5) +
+  theme_classic()
+
+```
+
+```{r}
+bigram_mission %>%
+  dfm() %>%
+  textstat_frequency(n = 15) %>%
+  as_tibble() %>%
+  mutate(feature = reorder(feature, frequency)) %>%
+  ggplot(aes(x = frequency, y = feature)) +
+  scale_x_continuous(expand = expansion(mult = c(0.002, 0)),
+                     breaks = c(seq(0, 10, 2)),
+                     limits = c(0, 10)) +
+  geom_segment(aes(x = 0, xend = frequency, y = feature, yend = feature), color = "grey50")+
+  geom_point(color = "#00BFC4", size = 4) +
+  labs(x = NULL, 
+         y = "Bigram Frequency") +
+  geom_text(aes(label = frequency), nudge_x = 0.4) +
+  theme_classic()
+
+```
+
+
+
