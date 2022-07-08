@@ -19,6 +19,9 @@ library(tidyverse)
 library(gt)
 library(readxl)
 library(tidyr)
+library(tidytext)
+library(tm)
+library(topicmodels)
 library( pander )
 library( quanteda )
 library( quanteda.textmodels )
@@ -156,6 +159,97 @@ bigram_mission %>%
          y = "Bigram Frequency") +
   geom_text(aes(label = frequency), nudge_x = 0.4) +
   theme_classic()
+
+```
+
+Tidytext 
+
+Tf-idf
+```{r}
+word_tidized <- token_mission %>%
+  dfm() %>%
+  tidy()
+bigram_tidized <- bigram_mission %>%
+  dfm() %>%
+  tidy()
+
+word_tidized %>%
+  bind_tf_idf(term, document, count) %>%
+  arrange(desc(tf_idf))
+
+bigram_tidized %>%
+  bind_tf_idf(term, document, count) %>%
+  arrange(desc(tf_idf))
+```
+
+Topic Modeling - LDA
+```{r}
+word_lda <- LDA(token_mission %>% dfm() , k = 8, control = list(seed = 1234))
+
+# word-topic probability: beta, the probability that the term is generated from topic n
+word_lda_tidy <- tidy(word_lda, matrix = "beta")
+
+
+word_lda_tidy %>% group_by(topic) %>% arrange(topic, -beta) 
+# The output doesn't make sense. <--> k?
+
+word_lda_tidy %>% group_by(topic) %>% slice_max(beta, n = 15) %>% ungroup() %>% arrange(topic, -beta)  # 1= social services, 2 = education, community 3 = health, healthcare 4 = schooling??? etc.
+
+```
+
+
+```{r}
+# per-document probability: gamma, the proportion that the words in document x is generated from topic n
+
+word_lda_tidy_gamma <- tidy(word_lda, matrix = "gamma")
+word_lda_tidy_gamma %>% group_by(topic) %>% arrange(document, -gamma) %>% slice_max(gamma, n=1) #which documents are almost entirely filled by one topic?
+```
+
+```{r}
+word_tidized %>% filter(document == "text33") %>% select(document:count) %>% arrange(-count)
+```
+
+
+```{r}
+word_lda_tidy_gamma %>%arrange(document, -gamma) %>% group_by(document) %>% slice_head(n=1) %>% ungroup() %>% arrange(topic, -gamma) # what documents does each topic contain?
+```
+
+TF-IDF II
+```{r}
+word_tidized %>%
+  bind_tf_idf(term, document, count) %>%
+  arrange(desc(tf_idf)) %>%
+  select(!c(tf, idf))
+
+bigram_tidized %>%
+  bind_tf_idf(term, document, count) %>%
+  arrange(desc(tf_idf)) %>%
+  select(!c(tf, idf))
+```
+
+
+pairwise correlation
+```{r}
+# widyr::pairwise_count()
+```
+
+Network Graphs
+```{r}
+# https://www.tidytextmining.com/nasa.html#word-co-ocurrences-and-correlations
+
+# library(igraph)
+# library(ggraph)
+# 
+# set.seed(1234)
+# title_word_pairs %>%
+#   filter(n >= 250) %>%
+#   graph_from_data_frame() %>%
+#   ggraph(layout = "fr") +
+#   geom_edge_link(aes(edge_alpha = n, edge_width = n), edge_colour = "cyan4") +
+#   geom_node_point(size = 5) +
+#   geom_node_text(aes(label = name), repel = TRUE, 
+#                  point.padding = unit(0.2, "lines")) +
+#   theme_void()
 
 ```
 
