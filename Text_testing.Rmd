@@ -1,0 +1,103 @@
+---
+title: "Text Package Implementation and Testing"
+output: html_notebook
+---
+
+
+```{r}
+# Install Text from CRAN
+#install.packages("text")
+library(text)
+```
+
+```{r}
+# Set-up environment with Text required python packages
+#textrpp_install()
+
+# Initialize the environment and save the settings for the next time
+textrpp_initialize(save_profile = TRUE)
+```
+```{r}
+# load test dataset
+library(readr)
+black <- read_csv("Source_data/blackCommunities.csv")
+
+#filtering out mission statements containing the words -black, african-american, people of color, black communities
+black <- black %>% filter(BLACK == 1)
+
+#keeping only the required columns in both datasets
+black <- select(black,mission,orgname)
+
+#Renaming columns
+black <- rename(black, Mission = mission, OrgName=orgname)
+```
+
+
+### Making word embeddings using BERT
+
+```{r}
+# Look at example data included in the text package comprising both text and numerical variables (note that there are only 292 mission statements in this test data).
+head(black)
+```
+
+```{r}
+# Transform the text/word data to word embedding.
+#word_embeddings <-textEmbed(black, model = "bert-base-uncased")
+
+# Save the word embedding to avoid having to embed the text again. It is good practice to save output from analyses that take a lot of time to compute, which is often the case when analyzing text data.
+#saveRDS(word_embeddings, "word_embeddings.rds")
+
+# Get the saved word embedding (again)
+word_embeddings <-readRDS("word_embeddings.rds")
+
+```
+
+```{r}
+# Look at the word embeddings
+#word_embeddings
+```
+
+
+
+### Calculating Semantic Similarity
+
+1. Our Mission is to educate individuals from all walks of life and backgrounds about the history of African Americans and to examine and tell the stories of a still marginalized population in America Theater.  Guided by the Black Hollywood Legends (1)
+2. a. educate both traditional and non-traditional theatre audiences as to the complexity, sophistication and relevance of black theatre b. to provide a home for theatre artists to practice their craft under professional conditions (3)
+3. To provide a social forum to provide opportunities for rural West Tennesseans to perform blacksmithing. (45)
+4. To provide blacksmithing, knifemakeing and metal working classes to veterans, and other underserved populations. (68)
+5. Use travel to inspire and broaden educational and cultural experiences of people of colour (18)
+6. The mission of Taking Travel Black is to build a community of global citizens from across the Black Diaspora. (28)            
+7. The Black Marlins Swim will be a swim team based on the ideology that technique and consistency come before conditioning. (93)
+
+```{r}
+# Compute semantic similarity scores between two text columns, using the previously created word_embeddings.
+
+# 1 and 2
+textSimilarity(word_embeddings$Mission[1,],word_embeddings$Mission[2,])
+
+# 3 and 4
+textSimilarity(word_embeddings$Mission[45,],word_embeddings$Mission[68,])
+
+# 1 and 68
+textSimilarity(word_embeddings$Mission[1,],word_embeddings$Mission[68,])
+
+# 2 and 45
+textSimilarity(word_embeddings$Mission[2,],word_embeddings$Mission[45,])
+
+# 1 and 93
+textSimilarity(word_embeddings$Mission[93,],word_embeddings$Mission[1,])
+
+# 45 and 18
+textSimilarity(word_embeddings$Mission[18,],word_embeddings$Mission[45,])
+
+# 28 and 18
+textSimilarity(word_embeddings$Mission[18,],word_embeddings$Mission[28,])
+
+```
+
+### Questions to be addressed
+- Model still needs to be improved
+- Word embeddings for 292 mission statemnets took close to ~60 mins
+- I'm doing pairwise similarity scores - convert this to more usable format
+- Mapping embeddings back to non profit information
+
