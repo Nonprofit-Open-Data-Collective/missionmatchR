@@ -1,0 +1,138 @@
+---
+title: "Making Test Datasets"
+output:
+  html_document:
+    df_print: paged
+---
+
+This is an R Notebook documenting how test datasets were made for testing out various text similarity approaches.
+
+```{r}
+# loading in required packages
+library(dplyr)
+library("readxl")
+library( pander )
+library( quanteda )
+library( quanteda.textmodels )
+library( quanteda.textstats )
+library( quanteda.textplots )
+```
+
+#### Test dataset for nonprofits focused on black communities
+This dataset contains a flag (the column BLACK) which designates 292 cases where missions contain one of the following: "black", "african american", "people of color", "black communit".
+
+Of those 292 cases, there are lots of false positives - cases where the mission contains the term "black" but does not serve the African American community - the term "black" corresponds to something other than the Black community. Those will be useful for sorting out mission matching tools that can differentiate between true positives and false positive.
+
+```{r}
+# reading in the data
+setwd("/Users/sue/Documents/Urban Institute/Mission Matching/missionmatchR/")
+black <- read.csv("Source_data/blackCommunities.csv")
+disadvantaged <- read_excel("Source_data/coded-mission-statements.xlsx")
+```
+
+```{r}
+# selecting 200 random mission statements with black!=1 
+# i.e. not containing black community related mission statement 
+# or mission statements containing the word black
+set.seed(2022)
+black_random <- black[sample(nrow(filter(black, BLACK != 1)), 200), ]
+
+# filter mission statements containing black community 
+# related mission statement or mission statements
+# containing the word black
+black_1 <- black %>% filter(BLACK == 1)
+
+# appending both the datasets
+black_all <- rbind(black_1, black_random)
+
+#keeping only the required columns in both datasets
+black_all <- select(black_all,mission,orgname, BLACK)
+
+#Renaming columns
+black_all <- rename(black_all, Mission = mission, OrgName=orgname)
+
+# writing the dataset to folder
+write.csv(black_all,"black_final.csv", row.names = FALSE)
+```
+
+```{r}
+head(black_all)
+```
+
+#### Test dataset for nonprofits focused on vulnerable populations 
+```{r}
+#renaming columns
+disadvantaged <- rename(disadvantaged, OrgName= 3, Taxonomy = 7)
+
+# adding a column to indicate whether nonprofit focuses
+# on disadvantaged or non-disadvantaged communities
+disadvantaged <- disadvantaged %>%
+  mutate(SimpleIndicator = case_when(
+    Taxonomy == "Disadvantaged" ~ "1",
+    Taxonomy == "Non-disadvantaged" ~ "0"
+    ))
+
+# keeping only the required columns
+disadvantaged <- select(disadvantaged, Mission, OrgName, SimpleIndicator)
+
+# adding the random 200 nonprofit mission statements
+black_random <- rename(black_random, OrgName= orgname, Mission = mission, SimpleIndicator=BLACK)
+black_random2 <- select(black_random, Mission, OrgName, SimpleIndicator)
+disadvantaged_all <- rbind(disadvantaged, black_random2)
+
+# writing the dataset to folder
+write.csv(disadvantaged_all,"disadvantaged_final.csv", row.names = FALSE)
+```
+
+```{r}
+head(disadvantaged_all)
+```
+
+#### Making immigrant test dataset from IRS documentation on 1023-EZ forms
+
+```{r}
+# we will use an archived version of this data as we are just making test datasets
+URL <- "https://github.com/DS4PS/cpp-527-spr-2020/blob/master/labs/data/IRS-1023-EZ-MISSIONS.rds?raw=true"
+immigrant <- readRDS(gzcon(url( URL )))
+
+# keeping the required columns
+immigrant <- select(immigrant, mission, orgname, 	codedef01, codedef02)
+
+# renaming the columns
+immigrant <- rename(immigrant, OrgName= orgname, Mission = mission, ActivityCode = codedef01, Sub_ActivityCode = codedef02)
+```
+
+```{r}
+# searching for key words that would ideally be found in nonprofit mission statements focused on immigrants/ immigrant rights but we also want some mission statements that contain these words but are not necessarily focused on immigrants so that we can test our algorithms effectively
+criteria.01 <- grepl( "immigrant rights", immigrant$Mission ) 
+criteria.02 <- grepl( "immigration", immigrant$Mission ) 
+criteria.03 <- grepl( "refugee", immigrant$Mission ) 
+criteria.04 <- grepl( "refugees", immigrant$Mission )
+criteria.05 <- grepl( "humanitarian", immigrant$Mission ) 
+criteria.06 <- grepl( "migrants", immigrant$Mission ) 
+criteria.07 <- grepl( "immigrants", immigrant$Mission ) 
+criteria.08 <- grepl( "immigrant", immigrant$Mission )
+criteria.09 <- grepl( "assylum", immigrant$Mission ) 
+criteria.10 <- grepl( "assylum-seekers", immigrant$Mission )
+criteria.11 <- grepl( "assylum seekers", immigrant$Mission )
+criteria.12 <- grepl( "legal", immigrant$Mission )
+
+
+immigrant_sample <- (criteria.01 | criteria.02 | criteria.03 | criteria.04 | criteria.05 | criteria.06 |
+                        criteria.07 | criteria.08 | criteria.09 | criteria.10 | criteria.11 | criteria.12) 
+```
+
+```{r}
+# create a dataframe
+immigrant$Category <- paste0( immigrant$ActivityCode, ": ", immigrant$Sub_ActivityCode )
+immigrant_all <- immigrant[ immigrant_sample, c("OrgName","Category","Mission") ] 
+row.names( immigrant_all ) <- NULL
+immigrant_all %>% head(15) %>% pander()
+```
+
+```{r}
+# writing the dataset to folder
+write.csv(immigrant_all,"immigrant_final.csv", row.names = FALSE)
+```
+
+**The handcoded version of these datasets can be used for testing various NLP algorithms - the handcoded versions are available in the test_datasets folder in the repo**

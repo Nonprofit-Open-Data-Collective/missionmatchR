@@ -4,7 +4,7 @@ library(dplyr)
 library(quanteda.textstats)
 
 #loading the test datasets
-black <- read.csv("blackCommunities.csv")
+black <- read.csv("Source_data/blackCommunities.csv")
 disadvantaged <- read.csv("disadvantagedCommunities.csv")
 
 #filtering out mission statements containing the words -black, african-american, people of color, black communities
