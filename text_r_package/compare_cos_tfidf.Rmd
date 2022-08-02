@@ -111,13 +111,13 @@ mu <- ddply(black_cos_scores, "Indicator", summarise, grp.mean=mean(cos_cam_play
 
 # Interleaved histograms
 p<-ggplot(black_cos_scores, aes(x=cos_cam_players_scores, color=Indicator)) +
-  geom_histogram(fill="white", position="dodge")+
+  geom_histogram(fill="white", position="dodge", binwidth = 0.01)+
   geom_vline(data=mu, aes(xintercept=grp.mean, color=Indicator),
              linetype="dashed")
 
 # Discrete colors
 p + scale_color_brewer(palette="Dark2") +
-  theme_minimal()+theme_classic()+theme(legend.position="top")
+  theme_minimal()+theme_classic()+theme(legend.position="top") 
 
 ```
 
@@ -140,11 +140,11 @@ mu <- ddply(black_tfidf_scores, "Indicator", summarise, grp.mean=mean(tfidf_cam_
 
 # Interleaved histograms
 p<-ggplot(black_tfidf_scores, aes(x=tfidf_cam_players_scores, color=Indicator)) +
-  geom_histogram(fill="white", position="dodge")+
+  geom_histogram(fill="white", position="dodge", binwidth=0.01)+
   geom_vline(data=mu, aes(xintercept=grp.mean, color=Indicator),
              linetype="dashed")
 
 # Discrete colors
 p + scale_color_brewer(palette="Dark2") +
-  theme_minimal()+theme_classic()+theme(legend.position="top")
+  theme_minimal()+theme_classic()+theme(legend.position="top") 
 ```

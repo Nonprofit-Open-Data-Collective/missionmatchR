@@ -121,9 +121,9 @@ mu <- ddply(black_cam_players, "Indicator", summarise, grp.mean=mean(scores_cam_
 
 # Interleaved histograms
 p<-ggplot(black_cam_players, aes(x=scores_cam_players, color=Indicator)) +
-  geom_histogram(fill="white", position="dodge")+
+  geom_histogram(fill="white", position="dodge", binwidth = 0.01)+
   geom_vline(data=mu, aes(xintercept=grp.mean, color=Indicator),
-             linetype="dashed")
+             linetype="dashed") 
 
 # Discrete colors
 p + scale_color_brewer(palette="Dark2") +
