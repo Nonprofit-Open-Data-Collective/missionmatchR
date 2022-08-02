@@ -66,7 +66,7 @@ dtm_nostop_black %>%
   head(10)
 #now the doc-term matrix makes more sense
 
-#lets also male a document incidence matrix (more useful for shorter texts 
+#lets also make a document incidence matrix (more useful for shorter texts 
 #like tweets and in this case mission statements)
 dim_black <- dfm_weight(dtm_black, scheme="boolean")
 

@@ -1,0 +1,150 @@
+---
+title: "Cosine, TF-IDF simialrity score distribution"
+output: html_notebook
+---
+
+In this notebook we will visualize the disrtibution of similarity scores we get from cosine and TF-IDF to comapare with the BERT approach
+
+```{r}
+# loading the required libraries
+library(quanteda)
+library(readtext)
+library(dplyr)
+library(quanteda.textstats)
+```
+
+```{r}
+# read in the test datasets
+black <- read.csv("~/Documents/Urban Institute/Mission Matching/missionmatchR/test_datasets/black_annotated.csv")
+
+disadvant <- read.csv("~/Documents/Urban Institute/Mission Matching/missionmatchR/test_datasets/disadvantaged_annotated.csv")
+
+immigrant <- read.csv("~/Documents/Urban Institute/Mission Matching/missionmatchR/test_datasets/immigrant_annotated.csv")
+```
+
+
+```{r}
+#converting the datasets to quanteda corpuses
+black_corpus <- corpus(black, text_field = "Mission")
+summary(black_corpus)
+```
+```{r}
+#creating meaningful docid
+docnames(black_corpus) <- black_corpus$OrgName
+print(head(black_corpus))
+```
+
+```{r}
+#pre-processing the data
+inaugural_tokens <- quanteda::tokens(black_corpus,
+                                     what = "word",
+                                     remove_punct = TRUE, # default FALSE
+                                     remove_symbols = TRUE, # default FALSE
+                                     remove_numbers = FALSE,
+                                     remove_url = TRUE, # default FALSE
+                                     remove_separators = TRUE,
+                                     split_hyphens = FALSE,
+                                     include_docvars = TRUE,
+                                     padding = FALSE,
+                                     verbose = quanteda_options("verbose")
+)
+```
+
+```{r}
+#generating a document-term matrix 
+dtm_black <- quanteda::dfm(inaugural_tokens,
+                     tolower = TRUE    # casefold
+)
+```
+
+```{r}
+#look at frequencies
+dtm_black %>%
+  textstat_frequency() %>% 
+  head(10)
+#a lot of words are just stop words and others are related to belonging to black communities
+
+#let's remove the stop words
+inaugural_tokens_nostop <- inaugural_tokens %>%
+  tokens_tolower() %>%
+  tokens_remove(stopwords('en'))
+dtm_nostop_black <- dfm(inaugural_tokens_nostop)
+dtm_nostop_black %>%
+  textstat_frequency() %>% 
+  head(10)
+#now the doc-term matrix makes more sense
+```
+
+```{r}
+# getting the scores
+
+#TF-IDF
+dtm_w_black <- dfm_tfidf(dtm_black)
+
+#cosine similarity
+cos_dtm_black <- textstat_simil(dtm_black, method="cosine")
+dim(cos_dtm_black)
+```
+#### Cosine Similarity Scores
+
+```{r}
+#lets look at the similarity matrix - cosine
+sort(cos_dtm_black[,"CAMBRIDGE PLAYERS INC .1"],dec=T)%>%
+  head(10)
+```
+
+```{r}
+# visualizing these scores
+cos_cam_players_scores <- cos_dtm_black[,"CAMBRIDGE PLAYERS INC .1"]
+
+# adding these scores back to the dataframe
+black_cos_scores <- black
+black_cos_scores$cos_cam_players_scores <- cos_cam_players_scores
+```
+
+```{r}
+# let's make a histogram of the scores
+black_cos_scores$Indicator <- as.factor(black_cos_scores$Indicator)
+
+# Calculate the mean of each group
+mu <- ddply(black_cos_scores, "Indicator", summarise, grp.mean=mean(cos_cam_players_scores))
+
+# Interleaved histograms
+p<-ggplot(black_cos_scores, aes(x=cos_cam_players_scores, color=Indicator)) +
+  geom_histogram(fill="white", position="dodge")+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=Indicator),
+             linetype="dashed")
+
+# Discrete colors
+p + scale_color_brewer(palette="Dark2") +
+  theme_minimal()+theme_classic()+theme(legend.position="top")
+
+```
+
+#### TF-IDF Similarity Scores
+```{r}
+cos_dtm_w_black <- textstat_simil(dtm_w_black, method="cosine")
+
+# visualizing these scores
+tfidf_cam_players_scores <- cos_dtm_w_black[,"CAMBRIDGE PLAYERS INC .1"]
+
+# adding these scores back to the dataframe
+black_tfidf_scores <- black
+black_tfidf_scores$tfidf_cam_players_scores <- tfidf_cam_players_scores
+
+# let's make a histogram of the scores
+black_tfidf_scores$Indicator <- as.factor(black_tfidf_scores$Indicator)
+
+# Calculate the mean of each group
+mu <- ddply(black_tfidf_scores, "Indicator", summarise, grp.mean=mean(tfidf_cam_players_scores))
+
+# Interleaved histograms
+p<-ggplot(black_tfidf_scores, aes(x=tfidf_cam_players_scores, color=Indicator)) +
+  geom_histogram(fill="white", position="dodge")+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=Indicator),
+             linetype="dashed")
+
+# Discrete colors
+p + scale_color_brewer(palette="Dark2") +
+  theme_minimal()+theme_classic()+theme(legend.position="top")
+```

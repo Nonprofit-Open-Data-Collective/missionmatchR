@@ -1,0 +1,132 @@
+---
+title: "Similiarity Score Distribution"
+output:
+  html_document:
+    df_print: paged
+---
+
+In this notebook we will understand what distribution do the similarity scores from BERT follow. We will be running the *text* package on the 3 annotated test datasets that we created.
+
+Install Text from CRAN
+```{r}
+#install.packages("text")
+library(text)
+```
+
+```{r}
+# Set-up environment with Text required python packages
+# textrpp_install()
+
+# Initialize the environment and save the settings for the next time
+# textrpp_initialize(save_profile = TRUE)
+```
+```{r}
+# loading in required packages
+library(dplyr)
+library("readxl")
+library( pander )
+library( quanteda )
+library( quanteda.textmodels )
+library( quanteda.textstats )
+library( quanteda.textplots )
+library(stringr)
+library(ggplot2)
+library(plyr)
+```
+
+```{r}
+# read in the test datasets
+black <- read.csv("~/Documents/Urban Institute/Mission Matching/missionmatchR/test_datasets/black_annotated.csv")
+
+disadvant <- read.csv("~/Documents/Urban Institute/Mission Matching/missionmatchR/test_datasets/disadvantaged_annotated.csv")
+
+immigrant <- read.csv("~/Documents/Urban Institute/Mission Matching/missionmatchR/test_datasets/immigrant_annotated.csv")
+```
+
+```{r}
+# Look at the datasets
+head(black)
+head(disadvant)
+head(immigrant)
+```
+
+We'll make an extra column with the mission statement and name of the nonprofit combined to see if a combination of mission statement and organization name gives better results.
+
+```{r}
+black$name_mission <- str_c(black$OrgName, '', black$Mission)
+disadvant$name_mission <- str_c(disadvant$OrgName, '', disadvant$Mission)
+immigrant$name_mission <- str_c(immigrant$OrgName, '', immigrant$Mission)
+```
+
+Now we will make word embeddings using the *text* package and see how BERT performs on mission statements and combination of mission statements and organization names.
+
+```{r}
+# Transform the text/word data to word embedding.
+black_word_embed <-textEmbed(black, model = "bert-base-uncased")
+
+# Save the word embedding to avoid having to embed the text again. It is good practice to save output from analyses that take a lot of time to compute, which is often the case when analyzing text data.
+saveRDS(black_word_embed, "black_word_embed.rds")
+
+# Get the saved word embedding (again)
+#word_embeddings <-readRDS("word_embeddings.rds")
+```
+
+
+```{r}
+# Transform the text/word data to word embedding.
+disadvant_word_embed <-textEmbed(disadvant[-(2)], model = "bert-base-uncased")
+
+# Save the word embedding to avoid having to embed the text again. It is good practice to save output from analyses that take a lot of time to compute, which is often the case when analyzing text data.
+saveRDS(disadvant_word_embed, "disadvant_word_embed.rds")
+
+# Transform the text/word data to word embedding.
+immigrant_word_embed <-textEmbed(immigrant[-(1:2)], model = "bert-base-uncased")
+
+# Save the word embedding to avoid having to embed the text again. It is good practice to save output from analyses that take a lot of time to compute, which is often the case when analyzing text data.
+saveRDS(immigrant_word_embed, "immigrant_word_embed.rds")
+```
+
+```{r}
+# let's look at the word embeddings
+black_word_embed$Mission[1:10,]
+```
+Each row corresponds to the 396 mission statements we had in the test dataset and the order of the mission statements is maintained so we trace these embeddings back to the original dataset easily.
+
+Now we want to see how the similarity scores are distributed and how they vary for different categories of nonprofits. For this we will pick one organization and calculate it's pairwise similarities with all the other nonprofits in the test dataset and then see the distribution of these pairwise simialrity scores.
+
+```{r}
+# Let's look at the nonprofit CAMBRIDGE PLAYERS INC - Our Mission is to educate individuals from all walks of life and backgrounds about the history of African Americans and to examine and tell the stories of a still marginalized population in America Theater.  Guided by the Black Hollywood Legends
+
+# create a dataframe with the same no. of rows as word embeddings to get similairty scores with all the other nonprofits
+cam_players <- black_word_embed$Mission[1,]
+cam_players <- cam_players %>% slice(rep(1:n(), each = 396))
+
+# get similarity scores
+scores_cam_players <- textSimilarity(cam_players,black_word_embed$Mission)
+
+# convert scores to a list
+#scores_cam_players <- list(scores_cam_players)
+
+# add the scores back to the dataframe
+black_cam_players <- black
+black_cam_players$scores_cam_players <- scores_cam_players
+```
+
+```{r}
+# let's make a histogram of the scores
+black_cam_players$Indicator <- as.factor(black_cam_players$Indicator)
+
+# Calculate the mean of each group
+mu <- ddply(black_cam_players, "Indicator", summarise, grp.mean=mean(scores_cam_players))
+
+# Interleaved histograms
+p<-ggplot(black_cam_players, aes(x=scores_cam_players, color=Indicator)) +
+  geom_histogram(fill="white", position="dodge")+
+  geom_vline(data=mu, aes(xintercept=grp.mean, color=Indicator),
+             linetype="dashed")
+
+# Discrete colors
+p + scale_color_brewer(palette="Dark2") +
+  theme_minimal()+theme_classic()+theme(legend.position="top")
+
+```
